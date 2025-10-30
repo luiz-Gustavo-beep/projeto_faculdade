@@ -2,23 +2,22 @@ import customtkinter as ctk
 from tkinter import messagebox
 from conexao import get_connection
 
-
-class JogosApp:
-    def __init__(self, master=None):
-        # === Conexão com o banco ===
+class JogosApp(ctk.CTkToplevel):
+    def __init__(self, master=None, menu_principal=None):
+        super().__init__(master)
+        self.menu_principal = menu_principal
         self.con = get_connection()
 
-        # === Janela principal ===
-        self.janela = ctk.CTkToplevel(master)
-        self.janela.title("🎮 Gerenciar Jogos")
-        self.janela.geometry("1000x500")
+        # === Configurações da janela ===
+        self.title("🎮 Gerenciar Jogos")
+        self.geometry("1000x500")
+        self.protocol("WM_DELETE_WINDOW", self.voltar)
 
         # === Título ===
-        self.titulo = ctk.CTkLabel(self.janela, text="🎮 Gerenciar Jogos", font=("Arial", 20, "bold"))
-        self.titulo.pack(pady=15)
+        ctk.CTkLabel(self, text="🎮 Gerenciar Jogos", font=("Arial", 20, "bold")).pack(pady=15)
 
         # === Frame de campos ===
-        self.frame_campos = ctk.CTkFrame(self.janela)
+        self.frame_campos = ctk.CTkFrame(self)
         self.frame_campos.pack(pady=10)
 
         ctk.CTkLabel(self.frame_campos, text="Título:").grid(row=0, column=0, padx=10, pady=5)
@@ -38,7 +37,7 @@ class JogosApp:
         self.entry_imagem.grid(row=3, column=1, pady=5)
 
         # === Frame de botões ===
-        self.frame_botoes = ctk.CTkFrame(self.janela)
+        self.frame_botoes = ctk.CTkFrame(self)
         self.frame_botoes.pack(pady=10)
 
         ctk.CTkButton(self.frame_botoes, text="Cadastrar", command=self.cadastrar_jogo).grid(row=0, column=0, padx=10)
@@ -47,13 +46,13 @@ class JogosApp:
         ctk.CTkButton(self.frame_botoes, text="Voltar", command=self.voltar).grid(row=0, column=3, padx=10)
 
         # === Lista de jogos ===
-        self.lista_jogos = ctk.CTkTextbox(self.janela, width=500, height=200)
+        self.lista_jogos = ctk.CTkTextbox(self, width=500, height=200)
         self.lista_jogos.pack(pady=15)
 
         # Atualiza lista na abertura
         self.atualizar_lista()
 
-    # ---------------- MÉTODOS ----------------
+    # ===================== CRUD =====================
     def cadastrar_jogo(self):
         titulo = self.entry_titulo.get()
         data = self.entry_data.get()
@@ -65,10 +64,7 @@ class JogosApp:
             return
 
         cur = self.con.cursor()
-        sql = """
-            INSERT INTO jogo (titulo, data_lancamento, desenvolvedor, imagem_capa)
-            VALUES (%s, %s, %s, %s)
-        """
+        sql = "INSERT INTO jogo (titulo, data_lancamento, desenvolvedor, imagem_capa) VALUES (%s, %s, %s, %s)"
         cur.execute(sql, (titulo, data, dev, img))
         self.con.commit()
 
@@ -82,8 +78,8 @@ class JogosApp:
         self.entry_imagem.delete(0, "end")
 
     def excluir_jogo(self):
-        selecionado = self.lista_jogos.get("insert linestart", "insert lineend")
-        if not selecionado.strip():
+        selecionado = self.lista_jogos.get("insert linestart", "insert lineend").strip()
+        if not selecionado:
             messagebox.showwarning("Aviso", "Selecione um jogo na lista para excluir.")
             return
 
@@ -99,18 +95,32 @@ class JogosApp:
         cur = self.con.cursor()
         cur.execute("SELECT idjogo, titulo, desenvolvedor FROM jogo ORDER BY idjogo")
         jogos = cur.fetchall()
+        self.lista_jogos.configure(state="normal")
         self.lista_jogos.delete("1.0", "end")
         for jogo in jogos:
             self.lista_jogos.insert("end", f"ID: {jogo[0]} | {jogo[1]} ({jogo[2]})\n")
+        self.lista_jogos.configure(state="disabled")
 
+    # ===================== Voltar =====================
     def voltar(self):
-        self.janela.destroy()
+        if self.menu_principal:
+            self.menu_principal.deiconify()
+        self.destroy()
 
 
-# ---------------- EXECUÇÃO DIRETA ----------------
+# ===================== Teste de execução =====================
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
-    app = JogosApp()
-    app.janela.mainloop()
+    menu = ctk.CTk()
+    menu.title("Menu Principal")
+    menu.geometry("400x400")
+
+    def abrir_jogos():
+        menu.withdraw()
+        JogosApp(master=menu, menu_principal=menu)
+
+    ctk.CTkButton(menu, text="Gerenciar Jogos", command=abrir_jogos, width=200).pack(pady=20)
+
+    menu.mainloop()

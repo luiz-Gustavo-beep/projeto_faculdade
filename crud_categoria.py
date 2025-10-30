@@ -2,20 +2,22 @@ import customtkinter as ctk
 from tkinter import messagebox
 from conexao import get_connection
 
-class CategoriaApp:
+class CategoriaApp(ctk.CTkToplevel):
     def __init__(self, master=None, menu_principal=None):
-        self.con = get_connection()
+        super().__init__(master)
         self.menu_principal = menu_principal
-
-        self.janela = ctk.CTkToplevel(master)
-        self.janela.title("🎮 Gerenciar Categorias")
-        self.janela.geometry("1000x500")
+        self.con = get_connection()
+        
+        # Configurações da janela
+        self.title("🎮 Gerenciar Categorias")
+        self.geometry("1000x500")
+        self.protocol("WM_DELETE_WINDOW", self.voltar)
 
         # Título
-        ctk.CTkLabel(self.janela, text="📁 Gerenciar Categorias", font=("Arial", 20, "bold")).pack(pady=15)
+        ctk.CTkLabel(self, text="📁 Gerenciar Categorias", font=("Arial", 20, "bold")).pack(pady=15)
 
         # Frame campos
-        self.frame_campos = ctk.CTkFrame(self.janela)
+        self.frame_campos = ctk.CTkFrame(self)
         self.frame_campos.pack(pady=10)
 
         ctk.CTkLabel(self.frame_campos, text="Nome:").grid(row=0, column=0, padx=10, pady=5)
@@ -26,31 +28,32 @@ class CategoriaApp:
         self.entry_desc = ctk.CTkEntry(self.frame_campos, width=300)
         self.entry_desc.grid(row=1, column=1, pady=5)
 
-        # Lista
-        self.lista_categorias = ctk.CTkTextbox(self.janela, width=580, height=230)
+        # Lista de categorias
+        self.lista_categorias = ctk.CTkTextbox(self, width=580, height=230)
         self.lista_categorias.pack(pady=10)
 
         # Frame botões
-        self.frame_botoes = ctk.CTkFrame(self.janela)
+        self.frame_botoes = ctk.CTkFrame(self)
         self.frame_botoes.pack(pady=10)
 
         ctk.CTkButton(self.frame_botoes, text="Cadastrar", command=self.cadastrar_categoria).grid(row=0, column=0, padx=10)
         ctk.CTkButton(self.frame_botoes, text="Editar", command=self.editar_categoria).grid(row=0, column=1, padx=10)
         ctk.CTkButton(self.frame_botoes, text="Excluir", command=self.excluir_categoria).grid(row=0, column=2, padx=10)
         ctk.CTkButton(self.frame_botoes, text="Atualizar Lista", command=self.atualizar_lista).grid(row=0, column=3, padx=10)
-        # Botão voltar no mesmo frame
         ctk.CTkButton(self.frame_botoes, text="Voltar", command=self.voltar).grid(row=0, column=4, padx=10)
 
         self.atualizar_lista()
 
-    # Métodos CRUD
+    # ===================== CRUD =====================
     def atualizar_lista(self):
         cur = self.con.cursor()
         cur.execute("SELECT idcategoria, nome, descricao FROM categoria ORDER BY idcategoria")
         categorias = cur.fetchall()
+        self.lista_categorias.configure(state="normal")
         self.lista_categorias.delete("1.0", "end")
         for cat in categorias:
             self.lista_categorias.insert("end", f"ID: {cat[0]} | {cat[1]} - {cat[2]}\n")
+        self.lista_categorias.configure(state="disabled")
 
     def cadastrar_categoria(self):
         nome = self.entry_nome.get()
@@ -67,8 +70,8 @@ class CategoriaApp:
         messagebox.showinfo("Sucesso", "✅ Categoria cadastrada com sucesso!")
 
     def editar_categoria(self):
-        selecionado = self.lista_categorias.get("insert linestart", "insert lineend")
-        if not selecionado.strip():
+        selecionado = self.lista_categorias.get("insert linestart", "insert lineend").strip()
+        if not selecionado:
             messagebox.showwarning("Aviso", "Selecione uma categoria na lista para editar.")
             return
         idcategoria = selecionado.split(" | ")[0].replace("ID: ", "")
@@ -78,7 +81,8 @@ class CategoriaApp:
             messagebox.showwarning("Aviso", "Preencha o novo nome antes de editar.")
             return
         cur = self.con.cursor()
-        cur.execute("UPDATE categoria SET nome=%s, descricao=%s WHERE idcategoria=%s", (novo_nome, nova_desc, idcategoria))
+        cur.execute("UPDATE categoria SET nome=%s, descricao=%s WHERE idcategoria=%s",
+                    (novo_nome, nova_desc, idcategoria))
         self.con.commit()
         self.atualizar_lista()
         self.entry_nome.delete(0, "end")
@@ -86,8 +90,8 @@ class CategoriaApp:
         messagebox.showinfo("Sucesso", "✅ Categoria atualizada com sucesso!")
 
     def excluir_categoria(self):
-        selecionado = self.lista_categorias.get("insert linestart", "insert lineend")
-        if not selecionado.strip():
+        selecionado = self.lista_categorias.get("insert linestart", "insert lineend").strip()
+        if not selecionado:
             messagebox.showwarning("Aviso", "Selecione uma categoria na lista para excluir.")
             return
         idcategoria = selecionado.split(" | ")[0].replace("ID: ", "")
@@ -97,14 +101,13 @@ class CategoriaApp:
         self.atualizar_lista()
         messagebox.showinfo("Sucesso", "🗑️ Categoria excluída com sucesso!")
 
-    # Função voltar para menu
+    # ===================== Voltar =====================
     def voltar(self):
         if self.menu_principal:
-            self.menu_principal.deiconify()  # mostra o menu
-        self.janela.destroy()
+            self.menu_principal.deiconify()  # mostra menu principal
+        self.destroy()  # fecha esta janela
 
-
-# Teste de execução
+# ===================== Teste de execução =====================
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
@@ -115,8 +118,9 @@ if __name__ == "__main__":
 
     def abrir_categorias():
         menu.withdraw()
-        CategoriaApp(menu_principal=menu)
+        CategoriaApp(master=menu, menu_principal=menu)
 
     ctk.CTkButton(menu, text="Gerenciar Categorias", command=abrir_categorias, width=200).pack(pady=20)
 
     menu.mainloop()
+
